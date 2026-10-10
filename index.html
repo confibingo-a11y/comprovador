@@ -1,0 +1,288 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Verificador y Lista de Rifas</title>
+    <link rel="stylesheet" href="style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600;700&family=Courier+Prime:wght@700&display=swap" rel="stylesheet">
+</head>
+<body>
+
+    <div class="container">
+        <header class="header">
+            <span class="badge">Control de Sorteo</span>
+            <h1>Gestión de Números</h1>
+            <p>Consulta, registra y administra los tickets vendidos del 0000 al 9999.</p>
+        </header>
+
+        <!-- PANELES DE NAVEGACIÓN -->
+        <div class="tabs">
+            <button class="tab-btn active" onclick="switchTab('search')">🔍 Consultar</button>
+            <button class="tab-btn" onclick="switchTab('register')">➕ Registrar</button>
+            <button class="tab-btn" onclick="switchTab('list')">📋 Lista Completa</button>
+        </div>
+
+        <!-- SECCIÓN 1: CONSULTAR NÚMERO -->
+        <div id="section-search" class="card-section active">
+            <div class="card">
+                <h2>Buscar Ticket Vendido</h2>
+                <p class="subtitle">Ingresa un número de 4 dígitos para verificar su estado.</p>
+                
+                <div class="search-box">
+                    <input type="text" id="search-input" maxlength="4" placeholder="Ej. 4872">
+                    <button id="btn-search" class="btn btn-primary">Consultar</button>
+                </div>
+
+                <div id="search-result" class="result-container hidden">
+                    <div id="status-badge" class="status-badge">DISPONIBLE</div>
+                    
+                    <div class="result-details" id="details-box">
+                        <div class="info-row">
+                            <span class="label">Número:</span>
+                            <span class="value" id="res-num">----</span>
+                        </div>
+                        <div class="info-row">
+                            <span class="label">Comprador:</span>
+                            <span class="value" id="res-name">-</span>
+                        </div>
+                        <div class="info-row">
+                            <span class="label">Cédula:</span>
+                            <span class="value" id="res-cedula">-</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- SECCIÓN 2: REGISTRAR NUEVA VENTA -->
+        <div id="section-register" class="card-section">
+            <div class="card">
+                <h2>Registrar Comprador</h2>
+                <p class="subtitle">Asigna un número de 4 dígitos y guárdalo.</p>
+                
+                <form id="sale-form">
+                    <div class="form-group">
+                        <label for="reg-number">Número a Asignar (0000 - 9999)</label>
+                        <input type="text" id="reg-number" maxlength="4" placeholder="Ej. 1234" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="reg-name">Nombre Completo del Cliente</label>
+                        <input type="text" id="reg-name" placeholder="Ej. María Pérez" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="reg-cedula">Cédula de Identidad</label>
+                        <input type="text" id="reg-cedula" placeholder="Ej. V-25412365" required>
+                    </div>
+
+                    <button type="submit" class="btn btn-success">Guardar y Bloquear Número</button>
+                </form>
+            </div>
+        </div>
+
+        <!-- SECCIÓN 3: LISTA COMPLETA DE VENTAS -->
+        <div id="section-list" class="card-section">
+            <div class="card">
+                <h2>Detalle de Ventas Registradas</h2>
+                <p class="subtitle">Listado de todos los números vendidos hasta el momento.</p>
+                
+                <div class="table-responsive">
+                    <table class="sales-table">
+                        <thead>
+                            <tr>
+                                <th>N°</th>
+                                <th>Cliente</th>
+                                <th>Cédula</th>
+                                <th>Acción</th>
+                            </tr>
+                        </thead>
+                        <tbody id="sales-tbody">
+                            <!-- Se llena dinámicamente -->
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- Botón de vaciar toda la lista -->
+                <div class="list-actions">
+                    <button type="button" class="btn btn-danger-outline" onclick="clearAllSales()">🗑️ Limpiar Lista Completa</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- ESTADÍSTICAS INFERIORES -->
+        <div class="footer-stats">
+            <span>Total Números Vendidos: <strong id="total-sold">0</strong> / 10,000</span>
+        </div>
+    </div>
+
+    <!-- SCRIPT DE CONTROL CORREGIDO -->
+    <script>
+        function switchTab(tab) {
+            document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+            document.querySelectorAll('.card-section').forEach(s => s.classList.remove('active'));
+
+            if(tab === 'search') {
+                document.querySelector('.tabs button:nth-child(1)').classList.add('active');
+                document.getElementById('section-search').classList.add('active');
+            } else if(tab === 'register') {
+                document.querySelector('.tabs button:nth-child(2)').classList.add('active');
+                document.getElementById('section-register').classList.add('active');
+            } else if(tab === 'list') {
+                document.querySelector('.tabs button:nth-child(3)').classList.add('active');
+                document.getElementById('section-list').classList.add('active');
+                loadSalesList();
+            }
+        }
+
+        function getSales() {
+            try {
+                return JSON.parse(localStorage.getItem('rifa_sales')) || {};
+            } catch (e) {
+                return {};
+            }
+        }
+
+        function updateStats() {
+            const sales = getSales();
+            document.getElementById('total-sold').textContent = Object.keys(sales).length;
+        }
+
+        // Cargar lista de ventas en la tabla
+        function loadSalesList() {
+            const sales = getSales();
+            const tbody = document.getElementById('sales-tbody');
+            tbody.innerHTML = '';
+            
+            const sortedKeys = Object.keys(sales).sort();
+            
+            if(sortedKeys.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="4" class="empty-row">No hay ventas registradas aún.</td></tr>`;
+                return;
+            }
+
+            sortedKeys.forEach(num => {
+                const item = sales[num];
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td><strong class="highlight-num">${num}</strong></td>
+                    <td>${item.name}</td>
+                    <td>${item.cedula}</td>
+                    <td><button type="button" class="btn-delete" onclick="deleteSale('${num}')" title="Liberar número">🗑️</button></td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        // Eliminar un número individual
+        function deleteSale(num) {
+            if(confirm(`¿Estás seguro de eliminar el registro y liberar el número ${num}?`)) {
+                let sales = getSales();
+                delete sales[num];
+                localStorage.setItem('rifa_sales', JSON.stringify(sales));
+                loadSalesList();
+                updateStats();
+            }
+        }
+
+        // Limpiar toda la lista con doble confirmación (FUNCIONANDO)
+        function clearAllSales() {
+            const sales = getSales();
+            if (Object.keys(sales).length === 0) {
+                alert('La lista ya está vacía.');
+                return;
+            }
+
+            let firstCheck = confirm("⚠️ ADVERTENCIA: Estás a punto de borrar TODOS los registros de ventas de la rifa. ¿Estás completamente seguro?");
+            
+            if (firstCheck) {
+                let secondCheck = prompt("Para confirmar y vaciar la lista por completo, escribe la palabra BORRAR (en mayúsculas):");
+                
+                if (secondCheck !== null && secondCheck.trim() === "BORRAR") {
+                    // Borrar del almacenamiento interno
+                    localStorage.removeItem('rifa_sales');
+                    
+                    // Forzar vaciado de la tabla y contador
+                    loadSalesList();
+                    updateStats();
+                    
+                    // Ocultar resultados de búsqueda si había algo cargado
+                    document.getElementById('search-result').classList.add('hidden');
+                    
+                    alert("¡La lista ha sido limpiada exitosamente!");
+                } else if (secondCheck !== null) {
+                    alert("Palabra incorrecta. Operación cancelada. No se borró nada.");
+                }
+            }
+        }
+
+        // Registrar venta
+        document.getElementById('sale-form').addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            let num = document.getElementById('reg-number').value.trim().padStart(4, '0');
+            let name = document.getElementById('reg-name').value.trim();
+            let cedula = document.getElementById('reg-cedula').value.trim();
+
+            if(num.length !== 4 || isNaN(num)) {
+                alert('Por favor ingresa un número válido de 4 dígitos (0000 a 9999).');
+                return;
+            }
+
+            let sales = getSales();
+
+            if(sales[num]) {
+                alert(`¡Alerta! El número ${num} ya fue vendido a ${sales[num].name} (Cédula: ${sales[num].cedula}). No puedes repetirlo.`);
+                return;
+            }
+
+            sales[num] = { name: name, cedula: cedula };
+            localStorage.setItem('rifa_sales', JSON.stringify(sales));
+
+            alert(`¡Éxito! El número ${num} ha sido registrado correctamente.`);
+            document.getElementById('sale-form').reset();
+            updateStats();
+            
+            switchTab('search');
+            document.getElementById('search-input').value = num;
+            document.getElementById('btn-search').click();
+        });
+
+        // Consultar número
+        document.getElementById('btn-search').addEventListener('click', function() {
+            let query = document.getElementById('search-input').value.trim().padStart(4, '0');
+            let resultContainer = document.getElementById('search-result');
+            let badge = document.getElementById('status-badge');
+            let detailsBox = document.getElementById('details-box');
+
+            if(query.length !== 4 || isNaN(query)) {
+                alert('Ingresa un número válido de 4 dígitos.');
+                return;
+            }
+
+            let sales = getSales();
+            resultContainer.classList.remove('hidden');
+
+            if(sales[query]) {
+                badge.textContent = "OCUPADO / VENDIDO";
+                badge.className = "status-badge sold";
+                detailsBox.style.display = "block";
+                
+                document.getElementById('res-num').textContent = query;
+                document.getElementById('res-name').textContent = sales[query].name;
+                document.getElementById('res-cedula').textContent = sales[query].cedula;
+            } else {
+                badge.textContent = "DISPONIBLE";
+                badge.className = "status-badge available";
+                detailsBox.style.display = "none";
+                
+                document.getElementById('res-num').textContent = query;
+            }
+        });
+
+        // Inicializar datos
+        updateStats();
+    </script>
+</body>
+</html>
